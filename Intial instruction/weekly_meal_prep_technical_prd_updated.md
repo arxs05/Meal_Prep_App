@@ -9,7 +9,7 @@ Define the simplest implementation for the laptop-first Weekly Meal Prep Planner
 - Tailwind CSS
 - React state for in-progress edits
 - Local storage during the local-only phase
-- **Neon PostgreSQL + Prisma** for the future persistent phase
+- SUPEBASE for the database
 - Zod for runtime validation when validation is introduced
 - Amazon Bedrock server-side only in a later phase
 

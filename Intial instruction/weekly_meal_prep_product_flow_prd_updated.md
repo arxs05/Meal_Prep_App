@@ -101,7 +101,7 @@ It may support search, filtering by prepared state/category, and grouping by per
 3. Ingredient management with all fields above
 4. Advance-preparation checklist
 5. Local save behavior
-6. Neon + Prisma persistence
+6. superbase database
 7. Sharing links
 8. AI generation
 9. Saved recipes

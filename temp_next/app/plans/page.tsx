@@ -1,85 +1,108 @@
-'use client'
+'use client';
 
-import { useState, useEffect } from 'react'
-import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { getSupabaseClient } from '@/lib/supabase/client';
 
 interface PlanData {
-  id: string
-  title: string
-  weekStartDate: string
+  id: string;
+  title: string;
+  week_start_date: string;
 }
 
 // Helper function to format date as "20 September 2026"
 function formatDate(dateString: string): string {
-  if (!dateString) return 'Unknown date'
+  if (!dateString) return 'Unknown date';
   
-  const date = new Date(dateString)
-  if (isNaN(date.getTime())) return 'Unknown date'
+  const date = new Date(dateString);
+  if (isNaN(date.getTime())) return 'Unknown date';
   
-  const day = date.getDate()
-  const month = date.toLocaleString('default', { month: 'long' })
-  const year = date.getFullYear()
+  const day = date.getDate();
+  const month = date.toLocaleString('default', { month: 'long' });
+  const year = date.getFullYear();
   
-  return `${day} ${month} ${year}`
+  return `${day} ${month} ${year}`;
 }
 
 export default function PlansPage() {
-  const router = useRouter()
-  const [plans, setPlans] = useState<PlanData[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const router = useRouter();
+  const [plans, setPlans] = useState<PlanData[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Load plans from localStorage
-    const storedPlans = localStorage.getItem('plans')
-    if (storedPlans) {
-      try {
-        const plansData: PlanData[] = JSON.parse(storedPlans)
-        // Sort by most recent (highest ID which is based on timestamp)
-        const sortedPlans = plansData.sort((a, b) => parseInt(b.id) - parseInt(a.id))
-        setPlans(sortedPlans)
-      } catch (e) {
-        console.error('Failed to parse stored plans:', e)
+    const fetchPlans = async () => {
+      const supabase = getSupabaseClient();
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        setIsLoading(false);
+        return;
       }
-    }
-    setIsLoading(false)
-  }, [])
 
-  const handleDeletePlan = (planId: string) => {
+      const { data: plansData, error } = await supabase
+        .from('weekly_plans')
+        .select('*')
+        .eq('owner_id', session.user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Failed to fetch plans:', error);
+      } else {
+        setPlans(plansData || []);
+      }
+      setIsLoading(false);
+    };
+
+    fetchPlans();
+  }, []);
+
+  const handleDeletePlan = async (planId: string) => {
     if (window.confirm('Are you sure you want to delete this plan? This will also delete all dishes associated with this plan.')) {
-      const storedPlans = localStorage.getItem('plans')
-      if (storedPlans) {
-        try {
-          const plansData: PlanData[] = JSON.parse(storedPlans)
-          const updatedPlans = plansData.filter(p => p.id !== planId)
-          setPlans(updatedPlans)
-          localStorage.setItem('plans', JSON.stringify(updatedPlans))
-          
-          // Also delete dishes for this plan
-          localStorage.removeItem(`dishes_${planId}`)
-        } catch (e) {
-          console.error('Failed to delete plan:', e)
-        }
+      const supabase = getSupabaseClient();
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        return;
       }
-    }
-  }
 
-  const handleOpenPlan = (planId: string) => {
-    // Set the current plan in localStorage for the workspace to use
-    const storedPlans = localStorage.getItem('plans')
-    if (storedPlans) {
-      try {
-        const plansData: PlanData[] = JSON.parse(storedPlans)
-        const plan = plansData.find(p => p.id === planId)
-        if (plan) {
-          localStorage.setItem('currentPlan', JSON.stringify(plan))
-          router.push(`/plan/${planId}/workspace`)
-        }
-      } catch (e) {
-        console.error('Failed to open plan:', e)
+      // Delete dishes first (via cascade or manually)
+      await supabase.from('dishes').delete().eq('plan_id', planId);
+      
+      // Delete the plan
+      const { error } = await supabase
+        .from('weekly_plans')
+        .delete()
+        .eq('id', planId)
+        .eq('owner_id', session.user.id);
+
+      if (error) {
+        console.error('Failed to delete plan:', error);
+      } else {
+        setPlans(plans.filter(p => p.id !== planId));
       }
     }
-  }
+  };
+
+  const handleOpenPlan = async (planId: string) => {
+    const supabase = getSupabaseClient();
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    if (!session) {
+      return;
+    }
+
+    const { data: plan } = await supabase
+      .from('weekly_plans')
+      .select('*')
+      .eq('id', planId)
+      .eq('owner_id', session.user.id)
+      .single();
+
+    if (plan) {
+      router.push(`/plan/${planId}/workspace`);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -90,7 +113,7 @@ export default function PlansPage() {
           </div>
         </div>
       </main>
-    )
+    );
   }
 
   return (
@@ -126,7 +149,7 @@ export default function PlansPage() {
                   <div className="flex-1">
                     <h3 className="text-xl font-semibold text-gray-900">{plan.title || 'Weekly Plan'}</h3>
                     <p className="text-gray-600 mt-1">
-                      Week starting {formatDate(plan.weekStartDate)}
+                      Week starting {formatDate(plan.week_start_date)}
                     </p>
                   </div>
                   <div className="flex gap-2">
@@ -159,5 +182,5 @@ export default function PlansPage() {
         </div>
       </div>
     </main>
-  )
+  );
 }

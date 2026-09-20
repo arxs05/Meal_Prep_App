@@ -1,151 +1,197 @@
-'use client'
+'use client';
 
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { getSupabaseClient } from '@/lib/supabase/client';
 
 interface PlanData {
-  id: string
-  title: string
-  weekStartDate: string
+  id: string;
+  title: string;
+  week_start_date: string;
 }
 
 interface Ingredient {
-  id: string
-  name: string
-  quantity: string
-  unit: string
-  category: 'Mandatory' | 'Optional'
-  assignedTo: string
-  isPrepared: boolean
-  preparationForm: string
+  id: string;
+  name: string;
+  quantity: string;
+  unit: string;
+  category: 'Mandatory' | 'Optional';
+  assigned_to: string;
+  is_prepared: boolean;
+  preparation_form: string;
 }
 
 interface Dish {
-  id: string
-  name: string
-  notes: string
-  day: string
-  ingredients: Ingredient[]
+  id: string;
+  name: string;
+  notes: string;
+  day: string;
+  ingredients: Ingredient[];
 }
 
 export default function WorkspacePage({ params }: { params: { id: string } }) {
-  const router = useRouter()
+  const router = useRouter();
   const [plan, setPlan] = useState<PlanData>({
     id: params.id,
     title: '',
-    weekStartDate: ''
-  })
-  const [dishes, setDishes] = useState<Dish[]>([])
-  const [editingDish, setEditingDish] = useState<Dish | null>(null)
-  const [showForm, setShowForm] = useState(false)
-  const [formDay, setFormDay] = useState('')
-  const [formData, setFormData] = useState({ name: '', notes: '' })
-  const [ingredients, setIngredients] = useState<Ingredient[]>([{ id: '1', name: '', quantity: '', unit: '', category: 'Mandatory', assignedTo: '', isPrepared: false, preparationForm: '' }])
+    week_start_date: ''
+  });
+  const [dishes, setDishes] = useState<Dish[]>([]);
+  const [editingDish, setEditingDish] = useState<Dish | null>(null);
+  const [showForm, setShowForm] = useState(false);
+  const [formDay, setFormDay] = useState('');
+  const [formData, setFormData] = useState({ name: '', notes: '' });
+  const [ingredients, setIngredients] = useState<Ingredient[]>([{ id: '1', name: '', quantity: '', unit: '', category: 'Mandatory', assigned_to: '', is_prepared: false, preparation_form: '' }]);
+  const [isLoading, setIsLoading] = useState(true);
 
   // Helper function to format date as "20 September 2026"
   function formatDate(dateString: string): string {
-    if (!dateString) return 'Unknown date'
+    if (!dateString) return 'Unknown date';
     
-    const date = new Date(dateString)
-    if (isNaN(date.getTime())) return 'Unknown date'
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return 'Unknown date';
     
-    const day = date.getDate()
-    const month = date.toLocaleString('default', { month: 'long' })
-    const year = date.getFullYear()
+    const day = date.getDate();
+    const month = date.toLocaleString('default', { month: 'long' });
+    const year = date.getFullYear();
     
-    return `${day} ${month} ${year}`
+    return `${day} ${month} ${year}`;
   }
 
   useEffect(() => {
-    // Load plan data from localStorage using the plan ID from params
-    const storedPlans = localStorage.getItem('plans')
-    if (storedPlans) {
-      try {
-        const plansData: PlanData[] = JSON.parse(storedPlans)
-        const plan = plansData.find(p => p.id === params.id)
-        if (plan) {
-          setPlan(plan)
-        }
-      } catch (e) {
-        console.error('Failed to parse stored plans:', e)
+    const fetchData = async () => {
+      const supabase = getSupabaseClient();
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        setIsLoading(false);
+        return;
       }
-    }
 
-    // Load dishes from localStorage using plan-specific key
-    const storedDishes = localStorage.getItem(`dishes_${params.id}`)
-    if (storedDishes) {
-      try {
-        const dishesData: Dish[] = JSON.parse(storedDishes)
-        // Ensure existing ingredients have all fields with defaults
-        const updatedDishes = dishesData.map(dish => ({
-          ...dish,
-          ingredients: dish.ingredients.map(ing => ({
-            ...ing,
-            preparationForm: ing.preparationForm || '',
-            category: ing.category || 'Mandatory',
-            assignedTo: ing.assignedTo || '',
-            isPrepared: ing.isPrepared !== undefined ? ing.isPrepared : false
-          }))
-        }))
-        setDishes(updatedDishes)
-      } catch (e) {
-        console.error('Failed to parse stored dishes:', e)
+      // Load plan data
+      const { data: planData, error: planError } = await supabase
+        .from('weekly_plans')
+        .select('*')
+        .eq('id', params.id)
+        .eq('owner_id', session.user.id)
+        .single();
+
+      if (planError || !planData) {
+        console.error('Failed to fetch plan:', planError);
+        setIsLoading(false);
+        return;
       }
-    }
-  }, [params.id])
 
-  const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+      setPlan(planData);
+
+      // Load dishes with ingredients
+      const { data: dishesData, error: dishesError } = await supabase
+        .from('dishes')
+        .select(`
+          id,
+          name,
+          notes,
+          day,
+          ingredients (
+            id,
+            name,
+            quantity,
+            unit,
+            category,
+            assigned_to,
+            is_prepared,
+            preparation_form
+          )
+        `)
+        .eq('plan_id', params.id)
+        .order('created_at', { ascending: true });
+
+      if (dishesError) {
+        console.error('Failed to fetch dishes:', dishesError);
+      } else {
+        setDishes(dishesData || []);
+      }
+
+      setIsLoading(false);
+    };
+
+    fetchData();
+  }, [params.id]);
+
+  const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
   const handleBack = () => {
-    router.push('/')
-  }
+    router.push('/');
+  };
+
+  const handleLogout = async () => {
+    const supabase = getSupabaseClient();
+    const { error } = await supabase.auth.signOut();
+    
+    if (error) {
+      alert('Failed to sign out: ' + error.message);
+      return;
+    }
+    
+    router.push('/login');
+    router.refresh();
+  };
 
   const handleAddDishClick = (day: string) => {
-    setFormDay(day)
-    setEditingDish(null)
-    setFormData({ name: '', notes: '' })
-    setIngredients([{ id: '1', name: '', quantity: '', unit: '', category: 'Mandatory', assignedTo: '', isPrepared: false, preparationForm: '' }])
-    setShowForm(true)
-  }
+    setFormDay(day);
+    setEditingDish(null);
+    setFormData({ name: '', notes: '' });
+    setIngredients([{ id: '1', name: '', quantity: '', unit: '', category: 'Mandatory', assigned_to: '', is_prepared: false, preparation_form: '' }]);
+    setShowForm(true);
+  };
 
   const handleEditDishClick = (dish: Dish) => {
-    setEditingDish(dish)
-    setFormData({ name: dish.name, notes: dish.notes })
-    setIngredients(dish.ingredients)
-    setShowForm(true)
-  }
+    setEditingDish(dish);
+    setFormDay(dish.day);
+    setFormData({ name: dish.name, notes: dish.notes });
+    setIngredients(dish.ingredients);
+    setShowForm(true);
+  };
 
   const handleAddIngredient = () => {
-    setIngredients([...ingredients, { id: Date.now().toString(), name: '', quantity: '', unit: '', category: 'Mandatory', assignedTo: '', isPrepared: false, preparationForm: '' }])
-  }
+    setIngredients([...ingredients, { id: Date.now().toString(), name: '', quantity: '', unit: '', category: 'Mandatory', assigned_to: '', is_prepared: false, preparation_form: '' }]);
+  };
 
   const handleRemoveIngredient = (id: string) => {
     if (ingredients.length > 1) {
-      setIngredients(ingredients.filter(ing => ing.id !== id))
+      setIngredients(ingredients.filter(ing => ing.id !== id));
     }
-  }
+  };
 
   const handleIngredientChange = (id: string, field: keyof Ingredient, value: string | boolean) => {
-    setIngredients(ingredients.map(ing => ing.id === id ? { ...ing, [field]: value } : ing))
-  }
+    setIngredients(ingredients.map(ing => ing.id === id ? { ...ing, [field]: value } : ing));
+  };
 
   const handleCategoryChange = (id: string, value: 'Mandatory' | 'Optional') => {
-    setIngredients(ingredients.map(ing => ing.id === id ? { ...ing, category: value } : ing))
-  }
+    setIngredients(ingredients.map(ing => ing.id === id ? { ...ing, category: value } : ing));
+  };
 
-  const handleFormSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleFormSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     
     if (!formData.name.trim()) {
-      alert('Dish name is required')
-      return
+      alert('Dish name is required');
+      return;
     }
 
     // Validate that all ingredient names are not empty
-    const emptyIngredients = ingredients.filter(ing => !ing.name.trim())
+    const emptyIngredients = ingredients.filter(ing => !ing.name.trim());
     if (emptyIngredients.length > 0) {
-      alert('Please fill in all ingredient names')
-      return
+      alert('Please fill in all ingredient names');
+      return;
+    }
+
+    const supabase = getSupabaseClient();
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    if (!session) {
+      alert('You must be logged in');
+      return;
     }
 
     const newDish: Dish = {
@@ -159,68 +205,195 @@ export default function WorkspacePage({ params }: { params: { id: string } }) {
         quantity: ing.quantity.trim(),
         unit: ing.unit.trim(),
         category: ing.category,
-        assignedTo: ing.assignedTo.trim(),
-        isPrepared: ing.isPrepared,
-        preparationForm: ing.preparationForm.trim()
+        assigned_to: ing.assigned_to.trim(),
+        is_prepared: ing.is_prepared,
+        preparation_form: ing.preparation_form.trim()
       }))
+    };
+
+    if (editingDish) {
+      // Update existing dish
+      const { error } = await supabase
+        .from('dishes')
+        .update({
+          name: newDish.name,
+          notes: newDish.notes,
+          day: newDish.day
+        })
+        .eq('id', editingDish.id);
+
+      if (error) {
+        console.error('Failed to update dish:', error);
+        alert('Failed to update dish');
+        return;
+      }
+
+      // Update ingredients
+      for (const ing of newDish.ingredients) {
+        if (ing.id.startsWith('temp-')) {
+          // New ingredient
+          const { error } = await supabase
+            .from('ingredients')
+            .insert({
+              dish_id: editingDish.id,
+              name: ing.name,
+              quantity: ing.quantity,
+              unit: ing.unit,
+              category: ing.category,
+              assigned_to: ing.assigned_to,
+              is_prepared: ing.is_prepared,
+              preparation_form: ing.preparation_form
+            });
+
+          if (error) {
+            console.error('Failed to insert ingredient:', error);
+          }
+        } else {
+          // Update existing ingredient
+          const { error } = await supabase
+            .from('ingredients')
+            .update({
+              name: ing.name,
+              quantity: ing.quantity,
+              unit: ing.unit,
+              category: ing.category,
+              assigned_to: ing.assigned_to,
+              is_prepared: ing.is_prepared,
+              preparation_form: ing.preparation_form
+            })
+            .eq('id', ing.id);
+
+          if (error) {
+            console.error('Failed to update ingredient:', error);
+          }
+        }
+      }
+
+      setDishes(dishes.map(d => d.id === editingDish.id ? newDish : d));
+    } else {
+      // Create new dish
+      const { data: dishData, error: dishError } = await supabase
+        .from('dishes')
+        .insert({
+          plan_id: params.id,
+          name: newDish.name,
+          notes: newDish.notes,
+          day: newDish.day
+        })
+        .select()
+        .single();
+
+      if (dishError) {
+        console.error('Failed to insert dish:', dishError);
+        alert('Failed to create dish');
+        return;
+      }
+
+      // Insert ingredients
+      for (const ing of newDish.ingredients) {
+        const { error } = await supabase
+          .from('ingredients')
+          .insert({
+            dish_id: dishData.id,
+            name: ing.name,
+            quantity: ing.quantity,
+            unit: ing.unit,
+            category: ing.category,
+            assigned_to: ing.assigned_to,
+            is_prepared: ing.is_prepared,
+            preparation_form: ing.preparation_form
+          });
+
+        if (error) {
+          console.error('Failed to insert ingredient:', error);
+        }
+      }
+
+      setDishes([...dishes, { ...newDish, id: dishData.id }]);
     }
 
-    const updatedDishes = editingDish
-      ? dishes.map(d => d.id === editingDish.id ? newDish : d)
-      : [...dishes, newDish]
-
-    setDishes(updatedDishes)
-    localStorage.setItem(`dishes_${params.id}`, JSON.stringify(updatedDishes))
-    setShowForm(false)
-    setFormData({ name: '', notes: '' })
-    setIngredients([{ id: '1', name: '', quantity: '', unit: '', category: 'Mandatory', assignedTo: '', isPrepared: false, preparationForm: '' }])
-  }
+    setShowForm(false);
+    setFormData({ name: '', notes: '' });
+    setIngredients([{ id: '1', name: '', quantity: '', unit: '', category: 'Mandatory', assigned_to: '', is_prepared: false, preparation_form: '' }]);
+  };
 
   const handleCancelForm = () => {
-    setShowForm(false)
-    setFormData({ name: '', notes: '' })
-    setIngredients([{ id: '1', name: '', quantity: '', unit: '', category: 'Mandatory', assignedTo: '', isPrepared: false, preparationForm: '' }])
-    setEditingDish(null)
-  }
+    setShowForm(false);
+    setFormData({ name: '', notes: '' });
+    setIngredients([{ id: '1', name: '', quantity: '', unit: '', category: 'Mandatory', assigned_to: '', is_prepared: false, preparation_form: '' }]);
+    setEditingDish(null);
+  };
 
-  const handleDeleteDish = (dishId: string) => {
+  const handleDeleteDish = async (dishId: string) => {
     if (window.confirm('Are you sure you want to delete this dish?')) {
-      const updatedDishes = dishes.filter(d => d.id !== dishId)
-      setDishes(updatedDishes)
-      localStorage.setItem(`dishes_${params.id}`, JSON.stringify(updatedDishes))
+      const supabase = getSupabaseClient();
+      const { error } = await supabase
+        .from('dishes')
+        .delete()
+        .eq('id', dishId);
+
+      if (error) {
+        console.error('Failed to delete dish:', error);
+      } else {
+        setDishes(dishes.filter(d => d.id !== dishId));
+      }
     }
-  }
+  };
 
   const getDishesForDay = (day: string) => {
-    return dishes.filter(d => d.day === day)
-  }
+    return dishes.filter(d => d.day === day);
+  };
 
   // Get all ingredients grouped by dish for the checklist
   const getIngredientsForChecklist = () => {
-    const allIngredients: { dish: Dish; ingredient: Ingredient }[] = []
+    const allIngredients: { dish: Dish; ingredient: Ingredient }[] = [];
     dishes.forEach(dish => {
       dish.ingredients.forEach(ingredient => {
-        allIngredients.push({ dish, ingredient })
-      })
-    })
-    return allIngredients
-  }
+        allIngredients.push({ dish, ingredient });
+      });
+    });
+    return allIngredients;
+  };
 
   // Toggle prepared state for an ingredient
-  const togglePrepared = (dishId: string, ingredientId: string) => {
+  const togglePrepared = async (dishId: string, ingredientId: string) => {
+    const supabase = getSupabaseClient();
+    
     const updatedDishes = dishes.map(dish => {
       if (dish.id === dishId) {
         return {
           ...dish,
           ingredients: dish.ingredients.map(ing =>
-            ing.id === ingredientId ? { ...ing, isPrepared: !ing.isPrepared } : ing
+            ing.id === ingredientId ? { ...ing, is_prepared: !ing.is_prepared } : ing
           )
-        }
+        };
       }
-      return dish
-    })
-    setDishes(updatedDishes)
-    localStorage.setItem(`dishes_${params.id}`, JSON.stringify(updatedDishes))
+      return dish;
+    });
+
+    setDishes(updatedDishes);
+
+    // Update in database
+    const { error } = await supabase
+      .from('ingredients')
+      .update({ is_prepared: !updatedDishes.find(d => d.id === dishId)?.ingredients.find(i => i.id === ingredientId)?.is_prepared })
+      .eq('id', ingredientId);
+
+    if (error) {
+      console.error('Failed to update ingredient:', error);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <main className="min-h-screen bg-gray-50">
+        <div className="container mx-auto px-4 py-16">
+          <div className="max-w-2xl mx-auto text-center">
+            <p className="text-gray-600">Loading...</p>
+          </div>
+        </div>
+      </main>
+    );
   }
 
   return (
@@ -234,9 +407,15 @@ export default function WorkspacePage({ params }: { params: { id: string } }) {
                 {plan.title || 'Weekly Plan'}
               </h1>
               <p className="text-sm text-gray-600">
-                Week starting {formatDate(plan.weekStartDate)}
+                Week starting {formatDate(plan.week_start_date)}
               </p>
             </div>
+            <button
+              onClick={handleLogout}
+              className="text-red-600 hover:text-red-800 px-4 py-2 rounded-md hover:bg-red-50 mr-2"
+            >
+              Logout
+            </button>
             <button
               onClick={handleBack}
               className="text-gray-600 hover:text-gray-900 px-4 py-2 rounded-md hover:bg-gray-100"
@@ -251,7 +430,7 @@ export default function WorkspacePage({ params }: { params: { id: string } }) {
       <div className="container mx-auto px-4 py-8">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {days.map((day) => {
-            const dayDishes = getDishesForDay(day)
+            const dayDishes = getDishesForDay(day);
             return (
               <div key={day} className="bg-white rounded-lg shadow p-6 flex flex-col">
                 <div className="flex items-center justify-between mb-4">
@@ -304,7 +483,7 @@ export default function WorkspacePage({ params }: { params: { id: string } }) {
                   )}
                 </div>
               </div>
-            )
+            );
           })}
         </div>
       </div>
@@ -327,8 +506,8 @@ export default function WorkspacePage({ params }: { params: { id: string } }) {
           ) : (
             <div className="space-y-6">
               {dishes.map((dish) => {
-                const dishIngredients = dish.ingredients
-                if (dishIngredients.length === 0) return null
+                const dishIngredients = dish.ingredients;
+                if (dishIngredients.length === 0) return null;
                 
                 return (
                   <div key={dish.id} className="bg-white rounded-lg shadow overflow-hidden">
@@ -354,7 +533,7 @@ export default function WorkspacePage({ params }: { params: { id: string } }) {
                           <div
                             key={ingredient.id}
                             className={`flex flex-col sm:flex-row sm:items-center gap-3 p-3 rounded-md border transition-colors ${
-                              ingredient.isPrepared
+                              ingredient.is_prepared
                                 ? 'bg-green-50 border-green-200'
                                 : 'bg-white border-gray-200'
                             }`}
@@ -363,7 +542,7 @@ export default function WorkspacePage({ params }: { params: { id: string } }) {
                               <label className="flex items-center gap-2 mt-1 cursor-pointer">
                                 <input
                                   type="checkbox"
-                                  checked={ingredient.isPrepared}
+                                  checked={ingredient.is_prepared}
                                   onChange={() => togglePrepared(dish.id, ingredient.id)}
                                   className="w-5 h-5 text-green-600 rounded focus:ring-green-500 border-gray-300"
                                 />
@@ -371,7 +550,7 @@ export default function WorkspacePage({ params }: { params: { id: string } }) {
                               
                               <div className="flex-1">
                                 <div className="flex flex-wrap items-center gap-2">
-                                  <span className={`font-medium ${ingredient.isPrepared ? 'text-green-800 line-through' : 'text-gray-900'}`}>
+                                  <span className={`font-medium ${ingredient.is_prepared ? 'text-green-800 line-through' : 'text-gray-900'}`}>
                                     {ingredient.name}
                                   </span>
                                   {ingredient.quantity && (
@@ -398,14 +577,14 @@ export default function WorkspacePage({ params }: { params: { id: string } }) {
                                       {ingredient.category}
                                     </span>
                                   )}
-                                  {ingredient.preparationForm && (
+                                  {ingredient.preparation_form && (
                                     <span className="text-gray-600">
-                                      {ingredient.preparationForm}
+                                      {ingredient.preparation_form}
                                     </span>
                                   )}
-                                  {ingredient.assignedTo && (
+                                  {ingredient.assigned_to && (
                                     <span className="text-gray-600">
-                                      👤 {ingredient.assignedTo}
+                                      👤 {ingredient.assigned_to}
                                     </span>
                                   )}
                                 </div>
@@ -416,7 +595,7 @@ export default function WorkspacePage({ params }: { params: { id: string } }) {
                       </div>
                     </div>
                   </div>
-                )
+                );
               })}
             </div>
           )}
@@ -499,15 +678,15 @@ export default function WorkspacePage({ params }: { params: { id: string } }) {
                         <input
                           type="text"
                           placeholder="Assigned person"
-                          value={ingredient.assignedTo}
-                          onChange={(e) => handleIngredientChange(ingredient.id, 'assignedTo', e.target.value)}
+                          value={ingredient.assigned_to}
+                          onChange={(e) => handleIngredientChange(ingredient.id, 'assigned_to', e.target.value)}
                           className="flex-1 px-3 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm text-black"
                         />
                         <label className="flex items-center gap-1 text-sm text-gray-700">
                           <input
                             type="checkbox"
-                            checked={ingredient.isPrepared}
-                            onChange={(e) => handleIngredientChange(ingredient.id, 'isPrepared', e.target.checked)}
+                            checked={ingredient.is_prepared}
+                            onChange={(e) => handleIngredientChange(ingredient.id, 'is_prepared', e.target.checked)}
                             className="w-4 h-4"
                           />
                           Prepared
@@ -517,8 +696,8 @@ export default function WorkspacePage({ params }: { params: { id: string } }) {
                         <input
                           type="text"
                           placeholder="Preparation form (e.g., diced, boiled)"
-                          value={ingredient.preparationForm}
-                          onChange={(e) => handleIngredientChange(ingredient.id, 'preparationForm', e.target.value)}
+                          value={ingredient.preparation_form}
+                          onChange={(e) => handleIngredientChange(ingredient.id, 'preparation_form', e.target.value)}
                           className="w-full px-3 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm text-black"
                         />
                       </div>
@@ -568,5 +747,5 @@ export default function WorkspacePage({ params }: { params: { id: string } }) {
         </div>
       )}
     </main>
-  )
+  );
 }

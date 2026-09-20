@@ -1,74 +1,89 @@
-'use client'
+'use client';
 
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { getSupabaseClient } from '@/lib/supabase/client';
 
 interface PlanData {
-  id: string
-  title: string
-  weekStartDate: string
+  id: string;
+  title: string;
+  week_start_date: string;
 }
 
 export default function NewPlanPage() {
-  const router = useRouter()
-  const [weekStartDate, setWeekStartDate] = useState('')
-  const [title, setTitle] = useState('')
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [existingPlans, setExistingPlans] = useState<PlanData[]>([])
+  const router = useRouter();
+  const [weekStartDate, setWeekStartDate] = useState('');
+  const [title, setTitle] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [existingPlans, setExistingPlans] = useState<PlanData[]>([]);
 
   // Load existing plans on mount
   useEffect(() => {
-    const storedPlans = localStorage.getItem('plans')
-    if (storedPlans) {
-      try {
-        const plansData: PlanData[] = JSON.parse(storedPlans)
-        setExistingPlans(plansData)
-      } catch (e) {
-        console.error('Failed to parse stored plans:', e)
+    const fetchPlans = async () => {
+      const supabase = getSupabaseClient();
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        return;
       }
-    }
-  }, [])
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsLoading(true)
-    setError(null)
+      const { data: plansData, error } = await supabase
+        .from('weekly_plans')
+        .select('*')
+        .eq('owner_id', session.user.id)
+        .order('created_at', { ascending: false });
 
-    // Simulate plan creation with local state
-    setTimeout(() => {
-      setIsLoading(false)
+      if (error) {
+        console.error('Failed to fetch plans:', error);
+      } else {
+        setExistingPlans(plansData || []);
+      }
+    };
+
+    fetchPlans();
+  }, []);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const supabase = getSupabaseClient();
+      const { data: { session }, error: authError } = await supabase.auth.getSession();
       
-      // Generate a unique ID for the plan
-      const planId = Date.now().toString()
-      
-      // Store plan data in localStorage
-      const planData: PlanData = {
-        id: planId,
+      if (authError || !session) {
+        setError('You must be logged in to create a plan');
+        return;
+      }
+
+      const planData = {
+        owner_id: session.user.id,
         title: title || 'Weekly Plan',
-        weekStartDate: weekStartDate
+        week_start_date: weekStartDate,
+      };
+
+      const { data: plan, error } = await supabase
+        .from('weekly_plans')
+        .insert(planData)
+        .select()
+        .single();
+
+      if (error) {
+        setError(error.message);
+        return;
       }
-      
-      // Get existing plans and add the new one
-      const storedPlans = localStorage.getItem('plans')
-      let plansArray: PlanData[] = []
-      if (storedPlans) {
-        try {
-          plansArray = JSON.parse(storedPlans)
-        } catch (e) {
-          console.error('Failed to parse stored plans:', e)
-        }
+
+      if (plan) {
+        router.push(`/plan/${plan.id}/workspace`);
       }
-      plansArray.push(planData)
-      localStorage.setItem('plans', JSON.stringify(plansArray))
-      
-      // Also set as current plan for immediate use
-      localStorage.setItem('currentPlan', JSON.stringify(planData))
-      
-      // Navigate to workspace page
-      router.push(`/plan/${planId}/workspace`)
-    }, 500)
-  }
+    } catch (err) {
+      setError('An error occurred while creating the plan');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <main className="min-h-screen bg-gray-50 py-12">
@@ -128,5 +143,5 @@ export default function NewPlanPage() {
         </div>
       </div>
     </main>
-  )
+  );
 }
