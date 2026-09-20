@@ -21,7 +21,7 @@ export default function HomePage() {
             </Link>
             
             <Link
-              href="/plan/new"
+              href="/plans"
               className="text-blue-600 hover:text-blue-800"
             >
               Open existing plan

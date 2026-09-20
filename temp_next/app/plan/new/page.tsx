@@ -1,7 +1,13 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+
+interface PlanData {
+  id: string
+  title: string
+  weekStartDate: string
+}
 
 export default function NewPlanPage() {
   const router = useRouter()
@@ -9,6 +15,20 @@ export default function NewPlanPage() {
   const [title, setTitle] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [existingPlans, setExistingPlans] = useState<PlanData[]>([])
+
+  // Load existing plans on mount
+  useEffect(() => {
+    const storedPlans = localStorage.getItem('plans')
+    if (storedPlans) {
+      try {
+        const plansData: PlanData[] = JSON.parse(storedPlans)
+        setExistingPlans(plansData)
+      } catch (e) {
+        console.error('Failed to parse stored plans:', e)
+      }
+    }
+  }, [])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -18,8 +38,35 @@ export default function NewPlanPage() {
     // Simulate plan creation with local state
     setTimeout(() => {
       setIsLoading(false)
-      alert(`Plan created successfully!\n\nWeek Start Date: ${weekStartDate}\nTitle: ${title || 'No title'}\n\n(This is a local demo - no data is saved yet)`)
-      router.push('/')
+      
+      // Generate a unique ID for the plan
+      const planId = Date.now().toString()
+      
+      // Store plan data in localStorage
+      const planData: PlanData = {
+        id: planId,
+        title: title || 'Weekly Plan',
+        weekStartDate: weekStartDate
+      }
+      
+      // Get existing plans and add the new one
+      const storedPlans = localStorage.getItem('plans')
+      let plansArray: PlanData[] = []
+      if (storedPlans) {
+        try {
+          plansArray = JSON.parse(storedPlans)
+        } catch (e) {
+          console.error('Failed to parse stored plans:', e)
+        }
+      }
+      plansArray.push(planData)
+      localStorage.setItem('plans', JSON.stringify(plansArray))
+      
+      // Also set as current plan for immediate use
+      localStorage.setItem('currentPlan', JSON.stringify(planData))
+      
+      // Navigate to workspace page
+      router.push(`/plan/${planId}/workspace`)
     }, 500)
   }
 
@@ -48,7 +95,7 @@ export default function NewPlanPage() {
                 required
                 value={weekStartDate}
                 onChange={(e) => setWeekStartDate(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
               />
             </div>
 
@@ -62,7 +109,7 @@ export default function NewPlanPage() {
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="e.g., September 16-22, 2024"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
               />
             </div>
 
