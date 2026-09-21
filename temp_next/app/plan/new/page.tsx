@@ -66,10 +66,14 @@ export default function NewPlanPage() {
       };
 
       const { data: plan, error } = await supabase
-        .from('weekly_plans')
-        .insert(planData)
-        .select()
-        .single();
+  .from('weekly_plans')
+  .insert({
+    ...planData,
+    visibility: 'private',
+    share_token: crypto.randomUUID(),
+  })
+  .select()
+  .single();
 
       if (error) {
         setError(error.message);
@@ -155,7 +159,7 @@ export default function NewPlanPage() {
           </form>
 
           <p className="mt-6 text-xs text-[#8b9bb4] text-center">
-            Welcome to your your new week !
+            Welcome to your new week !
           </p>
         </div>
       </div>

@@ -6,6 +6,12 @@ import { useRouter } from 'next/navigation';
 import { getSupabaseClient } from '@/lib/supabase/client';
 import { CalendarIcon, Trash2Icon, ChevronRightIcon } from 'lucide-react';
 
+const toTitleCase = (value: string) => {
+  return value.replace(/\w\S*/g, (word) =>
+    word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+  );
+};
+
 interface PlanData {
   id: string;
   title: string;
@@ -174,7 +180,7 @@ export default function PlansPage() {
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                   <div className="flex-1">
                     <h3 className="text-xl font-semibold text-[#f0f4f8] group-hover:text-[#00ff9d] transition-colors">
-                      {plan.title || 'Weekly Plan'}
+                      {toTitleCase(plan.title) || 'Weekly Plan'}
                     </h3>
                     <p className="text-[#8b9bb4] mt-1 flex items-center gap-2">
                       <CalendarIcon className="w-4 h-4 text-[#00d2ff]" />

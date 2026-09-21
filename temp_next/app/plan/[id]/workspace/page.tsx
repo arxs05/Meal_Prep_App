@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { getSupabaseClient } from '@/lib/supabase/client';
-import { SparklesIcon, Trash2Icon, EditIcon, CheckIcon } from 'lucide-react';
+import { SparklesIcon, Trash2Icon, EditIcon, CheckIcon, Share2Icon, StopCircleIcon, CopyIcon } from 'lucide-react';
 
 const toTitleCase = (value: string) => {
   return value.replace(/\w\S*/g, (word) =>
@@ -15,6 +15,8 @@ interface PlanData {
   id: string;
   title: string;
   week_start_date: string;
+  visibility: 'public' | 'private';
+  share_token: string;
 }
 
 interface Ingredient {
@@ -53,10 +55,12 @@ export default function WorkspacePage({ params }: { params: { id: string } }) {
   }, []);
 
   const [plan, setPlan] = useState<PlanData>({
-    id: params.id,
-    title: '',
-    week_start_date: ''
-  });
+  id: params.id,
+  title: '',
+  week_start_date: '',
+  visibility: 'private',
+  share_token: '',
+});
   const [dishes, setDishes] = useState<Dish[]>([]);
   const [editingDish, setEditingDish] = useState<Dish | null>(null);
   const [showForm, setShowForm] = useState(false);
@@ -66,6 +70,9 @@ export default function WorkspacePage({ params }: { params: { id: string } }) {
   const [isLoading, setIsLoading] = useState(true);
   const [savedDishTemplates, setSavedDishTemplates] = useState<{ id: string; name: string }[]>([]);
   const [isSearchingTemplates, setIsSearchingTemplates] = useState(false);
+  // Share state
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   // Helper function to format date as "20 September 2026"
   function formatDate(dateString: string): string {
@@ -390,6 +397,68 @@ export default function WorkspacePage({ params }: { params: { id: string } }) {
   const handleCategoryChange = (id: string, value: 'Mandatory' | 'Optional') => {
     setIngredients(ingredients.map(ing => ing.id === id ? { ...ing, category: value } : ing));
   };
+
+  // Share functions
+  const handleCopyLink = async (url: string) => {
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      alert('Failed to copy link');
+    }
+  };
+
+  const handleSharePlan = async () => {
+    const supabase = getSupabaseClient();
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    if (!session) {
+      alert('You must be logged in');
+      return;
+    }
+
+    const { error } = await supabase
+      .from('weekly_plans')
+      .update({ visibility: 'public' })
+      .eq('id', params.id)
+      .eq('owner_id', session.user.id);
+
+    if (error) {
+      console.error('Failed to share plan:', error);
+      alert('Failed to share plan');
+      return;
+    }
+
+    setPlan(prev => ({ ...prev, visibility: 'public' }));
+    setIsShareModalOpen(true);
+  };
+
+  const handleStopSharing = async () => {
+    const supabase = getSupabaseClient();
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    if (!session) {
+      alert('You must be logged in');
+      return;
+    }
+
+    const { error } = await supabase
+      .from('weekly_plans')
+      .update({ visibility: 'private' })
+      .eq('id', params.id)
+      .eq('owner_id', session.user.id);
+
+    if (error) {
+      console.error('Failed to stop sharing:', error);
+      alert('Failed to stop sharing plan');
+      return;
+    }
+
+    setPlan(prev => ({ ...prev, visibility: 'private' }));
+    setIsShareModalOpen(false);
+  };
+
   const handleGenerateIngredients = async () => {
   if (!formData.name.trim()) {
     alert('Please enter a dish name first.');
@@ -507,17 +576,17 @@ export default function WorkspacePage({ params }: { params: { id: string } }) {
         if (ing.id.startsWith('temp-')) {
           // New ingredient
           const { error } = await supabase
-            .from('ingredients')
-            .insert({
-              dish_id: editingDish.id,
-              name: ing.name,
-              quantity: ing.quantity,
-              unit: ing.unit,
-              category: ing.category,
-              assigned_to: ing.assigned_to,
-              is_prepared: ing.is_prepared,
-              preparation_form: ing.preparation_form
-            });
+  .from('ingredients')
+  .insert({
+    dish_id: editingDish.id,
+    name: ing.name,
+    quantity: ing.quantity,
+    unit: ing.unit,
+    category: ing.category,
+    assigned_to: ing.assigned_to?.trim().toLowerCase(),
+    is_prepared: ing.is_prepared,
+    preparation_form: ing.preparation_form,
+  });
 
           if (error) {
             console.error('Failed to insert ingredient:', error);
@@ -525,17 +594,16 @@ export default function WorkspacePage({ params }: { params: { id: string } }) {
         } else {
           // Update existing ingredient
           const { error } = await supabase
-            .from('ingredients')
-            .update({
-              name: ing.name,
-              quantity: ing.quantity,
-              unit: ing.unit,
-              category: ing.category,
-              assigned_to: ing.assigned_to,
-              is_prepared: ing.is_prepared,
-              preparation_form: ing.preparation_form
-            })
-            .eq('id', ing.id);
+  .from('ingredients')
+  .update({
+    name: ing.name,
+    quantity: ing.quantity,
+    unit: ing.unit,
+    category: ing.category,
+    assigned_to: ing.assigned_to?.trim().toLowerCase(),
+    is_prepared: ing.is_prepared,
+    preparation_form: ing.preparation_form,
+  })
 
           if (error) {
             console.error('Failed to update ingredient:', error);
@@ -571,19 +639,19 @@ if (!existingSavedDish?.exists) {
       }
 
       // Insert ingredients
-      for (const ing of newDish.ingredients) {
-        const { error } = await supabase
-          .from('ingredients')
-          .insert({
-            dish_id: dishData.id,
-            name: ing.name,
-            quantity: ing.quantity,
-            unit: ing.unit,
-            category: ing.category,
-            assigned_to: ing.assigned_to,
-            is_prepared: ing.is_prepared,
-            preparation_form: ing.preparation_form
-          });
+for (const ing of newDish.ingredients) {
+  const { error } = await supabase
+    .from('ingredients')
+    .insert({
+      dish_id: dishData.id,
+      name: ing.name,
+      quantity: ing.quantity,
+      unit: ing.unit,
+      category: ing.category,
+      assigned_to: ing.assigned_to?.trim().toLowerCase(),
+      is_prepared: ing.is_prepared,
+      preparation_form: ing.preparation_form,
+    });
 
         if (error) {
           console.error('Failed to insert ingredient:', error);
@@ -721,6 +789,89 @@ if (!existingSavedDish?.exists) {
           </div>
         </div>
       </div>
+
+      {/* Share Plan Card */}
+<div className="container mx-auto px-4 pt-6">
+  <div className="glass-card rounded-2xl border border-[rgba(255,255,255,0.08)] p-6">
+    <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+      <div>
+        <div className="flex items-center gap-2">
+          <Share2Icon className="h-5 w-5 text-[#00ff9d]" />
+          <h2 className="text-xl font-semibold text-[#f0f4f8]">
+            Share Plan
+          </h2>
+        </div>
+
+        <p className="mt-2 text-sm text-[#8b9bb4]">
+          {plan.visibility === 'public'
+            ? 'Anyone with the link can view this plan.'
+            : 'This plan is private and only visible to you.'}
+        </p>
+      </div>
+
+      {plan.visibility === 'public' ? (
+        <span className="rounded-full border border-green-400/30 bg-green-400/10 px-3 py-1 text-sm font-medium text-green-300">
+          Public
+        </span>
+      ) : (
+        <span className="rounded-full border border-gray-400/30 bg-gray-400/10 px-3 py-1 text-sm font-medium text-gray-300">
+          Private
+        </span>
+      )}
+    </div>
+
+    {plan.visibility === 'public' && (
+      <div className="mt-5">
+        <label className="mb-2 block text-sm font-medium text-[#a8b3c7]">
+          Shareable link
+        </label>
+
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <input
+            type="text"
+            readOnly
+            value={`${window.location.origin}/share/${plan.share_token}`}
+            className="min-w-0 flex-1 rounded-xl border border-[rgba(255,255,255,0.12)] bg-[rgba(20,27,45,0.6)] px-3 py-2 text-sm text-[#f0f4f8]"
+          />
+
+          <button
+            type="button"
+            onClick={() =>
+  handleCopyLink(`${window.location.origin}/share/${plan.share_token}`)
+}
+            className="rounded-full border border-[rgba(0,210,255,0.3)] bg-[rgba(0,210,255,0.12)] px-4 py-2 text-sm font-semibold text-[#00d2ff] transition hover:bg-[rgba(0,210,255,0.22)]"
+          >
+            <CopyIcon className="mr-2 inline-block h-4 w-4" />
+            {copied ? 'Copied!' : 'Copy link'}
+          </button>
+        </div>
+      </div>
+    )}
+
+    <div className="mt-5">
+      {plan.visibility === 'public' ? (
+        <button
+          type="button"
+          onClick={handleStopSharing}
+          className="inline-flex items-center gap-2 rounded-full border border-red-400/30 bg-red-400/10 px-4 py-2 text-sm font-semibold text-red-300 transition hover:bg-red-400/20"
+        >
+          <StopCircleIcon className="h-4 w-4" />
+          Stop Sharing
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={handleSharePlan}
+          className="inline-flex items-center gap-2 rounded-full bg-[#00ff9d] px-5 py-2 text-sm font-semibold text-[#060a13] transition hover:scale-105"
+        >
+          <Share2Icon className="h-4 w-4" />
+          Share Plan
+        </button>
+      )}
+    </div>
+  </div>
+</div>
+
 
       {/* Workspace Content */}
       <div className="container mx-auto px-4 py-8">
