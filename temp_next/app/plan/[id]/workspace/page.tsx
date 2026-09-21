@@ -16,6 +16,7 @@ interface Ingredient {
   quantity: string;
   unit: string;
   category: 'Mandatory' | 'Optional';
+  notes?: string;
   assigned_to: string;
   is_prepared: boolean;
   preparation_form: string;
@@ -31,6 +32,19 @@ interface Dish {
 
 export default function WorkspacePage({ params }: { params: { id: string } }) {
   const router = useRouter();
+
+  const [userId, setUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const loadUser = async () => {
+      const supabase = getSupabaseClient();
+      const { data } = await supabase.auth.getUser();
+      setUserId(data.user?.id ?? null);
+    };
+
+    loadUser();
+  }, []);
+
   const [plan, setPlan] = useState<PlanData>({
     id: params.id,
     title: '',
@@ -43,6 +57,8 @@ export default function WorkspacePage({ params }: { params: { id: string } }) {
   const [formData, setFormData] = useState({ name: '', notes: '' });
   const [ingredients, setIngredients] = useState<Ingredient[]>([{ id: '1', name: '', quantity: '', unit: '', category: 'Mandatory', assigned_to: '', is_prepared: false, preparation_form: '' }]);
   const [isLoading, setIsLoading] = useState(true);
+  const [savedDishTemplates, setSavedDishTemplates] = useState<{ id: string; name: string }[]>([]);
+  const [isSearchingTemplates, setIsSearchingTemplates] = useState(false);
 
   // Helper function to format date as "20 September 2026"
   function formatDate(dateString: string): string {
@@ -56,6 +72,194 @@ export default function WorkspacePage({ params }: { params: { id: string } }) {
     const year = date.getFullYear();
     
     return `${day} ${month} ${year}`;
+  }
+
+  // Helper function to normalize text for saved dish matching
+  // Removes extra whitespace, trims, and lowercases for comparison
+  function normalizeSavedText(text: string): string {
+    if (!text) return '';
+    return text.trim().replace(/\s+/g, ' ').toLowerCase();
+  }
+
+  // Helper function to create a saved dish template
+  async function createSavedDish(dish: Dish, owner_id: string): Promise<string | null> {
+    const supabase = getSupabaseClient();
+    
+    const normalized_name = normalizeSavedText(dish.name);
+    
+    // Check if saved dish with same normalized name exists for this user
+    const { data: existingSavedDishes, error: checkError } = await supabase
+      .from('saved_dishes')
+      .select('id')
+      .eq('owner_id', owner_id)
+      .eq('normalized_name', normalized_name)
+      .limit(1);
+
+    if (checkError) {
+      console.error('Failed to check existing saved dish:', checkError);
+      return null;
+    }
+
+    if (existingSavedDishes && existingSavedDishes.length > 0) {
+      // Saved dish already exists
+      return existingSavedDishes[0].id;
+    }
+
+    // Create new saved dish
+    const { data: savedDish, error: savedDishError } = await supabase
+      .from('saved_dishes')
+      .insert({
+        owner_id: owner_id,
+        name: dish.name.trim(),
+        normalized_name: normalized_name,
+        notes: dish.notes.trim() || null
+      })
+      .select()
+      .single();
+
+    if (savedDishError) {
+      console.error('Failed to create saved dish:', savedDishError);
+      return null;
+    }
+
+    // Create saved dish ingredients
+    if (savedDish && dish.ingredients && dish.ingredients.length > 0) {
+      for (const ing of dish.ingredients) {
+        const { error: ingError } = await supabase
+          .from('saved_dish_ingredients')
+          .insert({
+            saved_dish_id: savedDish.id,
+            name: ing.name.trim(),
+            quantity: ing.quantity.trim(),
+            unit: ing.unit.trim(),
+            category: ing.category,
+            notes: ing.notes ? ing.notes.trim() : null,
+            assigned_to: ing.assigned_to ? ing.assigned_to.trim() : null,
+            is_prepared: ing.is_prepared,
+            preparation_form: ing.preparation_form ? ing.preparation_form.trim() : null,
+            sort_order: 0
+          });
+
+        if (ingError) {
+          console.error('Failed to insert saved ingredient:', ingError);
+        }
+      }
+    }
+
+    return savedDish ? savedDish.id : null;
+  }
+
+  // Helper function to check for existing saved dish
+  async function checkExistingSavedDish(dishName: string, owner_id: string): Promise<{ exists: boolean; id: string | null } | null> {
+    const supabase = getSupabaseClient();
+    
+    const normalized_name = normalizeSavedText(dishName);
+    
+    const { data: existingSavedDishes, error: checkError } = await supabase
+      .from('saved_dishes')
+      .select('id')
+      .eq('owner_id', owner_id)
+      .eq('normalized_name', normalized_name)
+      .limit(1);
+
+    if (checkError) {
+      console.error('Failed to check existing saved dish:', checkError);
+      return null;
+    }
+
+    if (existingSavedDishes && existingSavedDishes.length > 0) {
+      return { exists: true, id: existingSavedDishes[0].id };
+    }
+
+    return { exists: false, id: null };
+  }
+
+  // Helper function to fetch saved dish templates for the current user
+  // that match the given search term
+  async function fetchSavedDishTemplates(searchTerm: string, ownerId: string): Promise<void> {
+    if (!searchTerm.trim()) {
+      setSavedDishTemplates([]);
+      return;
+    }
+
+    setIsSearchingTemplates(true);
+    const supabase = getSupabaseClient();
+    
+    const normalizedSearchTerm = normalizeSavedText(searchTerm);
+    
+    // Search for saved dishes that match the normalized name
+    const { data: templates, error } = await supabase
+      .from('saved_dishes')
+      .select('id, name')
+      .eq('owner_id', ownerId)
+      .ilike('normalized_name', `%${normalizedSearchTerm}%`)
+      .limit(10);
+
+    if (error) {
+      console.error('Failed to fetch saved dish templates:', error);
+      setSavedDishTemplates([]);
+    } else {
+      setSavedDishTemplates(templates || []);
+    }
+    
+    setIsSearchingTemplates(false);
+  }
+
+  // Helper function to load a saved dish template and populate the form
+  async function loadSavedDishTemplate(templateId: string, ownerId: string): Promise<void> {
+    const supabase = getSupabaseClient();
+    
+    // Fetch the saved dish
+    const { data: savedDish, error: dishError } = await supabase
+      .from('saved_dishes')
+      .select('*')
+      .eq('id', templateId)
+      .eq('owner_id', ownerId)
+      .single();
+
+    if (dishError) {
+      console.error('Failed to fetch saved dish:', dishError);
+      alert('Failed to load template');
+      return;
+    }
+
+    // Fetch the saved ingredients
+    const { data: savedIngredients, error: ingredientsError } = await supabase
+      .from('saved_dish_ingredients')
+      .select('*')
+      .eq('saved_dish_id', templateId)
+      .order('sort_order', { ascending: true });
+
+    if (ingredientsError) {
+      console.error('Failed to fetch saved dish ingredients:', ingredientsError);
+      alert('Failed to load ingredients');
+      return;
+    }
+
+    // Populate the form with the template data
+    setFormData({ name: savedDish.name, notes: savedDish.notes || '' });
+    
+    // Convert saved ingredients to the ingredient format used in the form
+    const loadedIngredients = (savedIngredients || []).map((ing, index) => ({
+      id: `temp-${Date.now()}-${index}`,
+      name: ing.name,
+      quantity: ing.quantity || '',
+      unit: ing.unit || '',
+      category: ing.category as 'Mandatory' | 'Optional',
+      assigned_to: ing.assigned_to || '',
+      is_prepared: ing.is_prepared,
+      preparation_form: ing.preparation_form || ''
+    }));
+
+    // If no ingredients were loaded, add a blank one
+    if (loadedIngredients.length === 0) {
+      loadedIngredients.push({ id: '1', name: '', quantity: '', unit: '', category: 'Mandatory', assigned_to: '', is_prepared: false, preparation_form: '' });
+    }
+
+    setIngredients(loadedIngredients);
+    
+    // Clear saved dishes templates after loading
+    setSavedDishTemplates([]);
   }
 
   useEffect(() => {
@@ -271,6 +475,13 @@ export default function WorkspacePage({ params }: { params: { id: string } }) {
 
       setDishes(dishes.map(d => d.id === editingDish.id ? newDish : d));
     } else {
+      // Only create a saved template if one does not already exist
+const existingSavedDish = await checkExistingSavedDish(newDish.name, userId!);
+
+if (!existingSavedDish?.exists) {
+  await createSavedDish(newDish, userId!);
+}
+
       // Create new dish
       const { data: dishData, error: dishError } = await supabase
         .from('dishes')
@@ -307,6 +518,13 @@ export default function WorkspacePage({ params }: { params: { id: string } }) {
         if (error) {
           console.error('Failed to insert ingredient:', error);
         }
+      }
+
+      // Create saved dish template for this new dish
+      const savedDishId = await createSavedDish(newDish, session.user.id);
+
+      if (!savedDishId) {
+      alert('Saved dish template creation failed. Check the browser console.');
       }
 
       setDishes([...dishes, { ...newDish, id: dishData.id }]);
@@ -620,10 +838,45 @@ export default function WorkspacePage({ params }: { params: { id: string } }) {
                   id="dishName"
                   required
                   value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  onChange={(e) => {
+  const name = e.target.value;
+
+  setFormData({ ...formData, name });
+
+  if (userId && name.trim()) {
+    fetchSavedDishTemplates(name, userId);
+  } else {
+    setSavedDishTemplates([]);
+  }
+}}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
                   placeholder="e.g., Oats Omelette"
                 />
+                {/* Template Suggestions */}
+{isSearchingTemplates && (
+  <div className="mt-2 text-sm text-gray-600">
+    Searching templates...
+  </div>
+)}
+
+{!isSearchingTemplates && savedDishTemplates.length > 0 && (
+  <div className="mt-2 space-y-1">
+    <p className="text-xs font-medium text-gray-500">
+      Use saved template:
+    </p>
+
+    {savedDishTemplates.map((template) => (
+      <button
+        key={template.id}
+        type="button"
+        onClick={() => loadSavedDishTemplate(template.id, userId!)}
+        className="block w-full text-left px-3 py-2 text-sm text-blue-600 hover:bg-blue-50 rounded-md"
+      >
+        {template.name}
+      </button>
+    ))}
+  </div>
+)}
               </div>
 
               <div>
