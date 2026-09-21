@@ -11,12 +11,12 @@ const newHandler = `onChange={(e) => {
 content = content.replace(oldHandler, newHandler);
 
 // Now find the input section and add suggestions UI
-const inputSection = `                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
+const inputSection = `                   className="w-full px-3 py-2 rounded-xl border border-[rgba(255,255,255,0.12)] bg-[rgba(20,27,45,0.6)] text-[#f0f4f8] placeholder:text-[#64748b] focus:outline-none focus:border-[#00ff9d] focus:ring-1 focus:ring-[#00ff9d]"
                    placeholder="e.g., Oats Omelette"
                  />
                </div>`;
 
-const suggestionsUI = `                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
+const suggestionsUI = `                   className="w-full px-3 py-2 rounded-xl border border-[rgba(255,255,255,0.12)] bg-[rgba(20,27,45,0.6)] text-[#f0f4f8] placeholder:text-[#64748b] focus:outline-none focus:border-[#00ff9d] focus:ring-1 focus:ring-[#00ff9d]"
                    placeholder="e.g., Oats Omelette"
                  />
                  {/* Template Suggestions */}

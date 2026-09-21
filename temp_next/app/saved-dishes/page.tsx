@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { getSupabaseClient } from '@/lib/supabase/client';
+import { PackageIcon, Trash2Icon } from 'lucide-react';
 
 interface SavedDishIngredient {
   id: string;
@@ -61,24 +62,7 @@ export default function SavedDishesPage() {
 
     const { data, error: fetchError } = await supabase
       .from('saved_dishes')
-      .select(`
-        id,
-        name,
-        notes,
-        created_at,
-        saved_dish_ingredients (
-          id,
-          name,
-          quantity,
-          unit,
-          category,
-          notes,
-          assigned_to,
-          is_prepared,
-          preparation_form,
-          sort_order
-        )
-      `)
+      .select('id, name, notes, created_at')
       .eq('owner_id', session.user.id)
       .order('created_at', { ascending: false });
 
@@ -87,8 +71,11 @@ export default function SavedDishesPage() {
       setError('Failed to load saved dishes. Please try again.');
     } else {
       const formattedDishes: SavedDish[] = (data || []).map((dish: any) => ({
-        ...dish,
-        ingredients: dish.saved_dish_ingredients || [],
+        id: dish.id,
+        name: dish.name,
+        notes: dish.notes,
+        created_at: dish.created_at,
+        ingredients: [], // No longer fetching ingredients
       }));
 
       setSavedDishes(formattedDishes);
@@ -124,146 +111,103 @@ export default function SavedDishesPage() {
 
   if (isLoading) {
     return (
-      <main className="min-h-screen bg-gray-50 p-6">
-        <div className="mx-auto max-w-4xl">
-          <p className="text-gray-600">Loading saved dishes...</p>
+      <main className="min-h-screen flex items-center justify-center">
+        <div className="flex items-center gap-2 text-[#00ff9d]">
+          <div className="w-5 h-5 border-2 border-[#00ff9d] border-t-transparent rounded-full animate-spin" />
+          <span>Loading saved dishes...</span>
         </div>
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen bg-gray-50 p-6">
-      <div className="mx-auto max-w-4xl">
-        <div className="mb-8 flex items-center justify-between">
+    <main className="min-h-screen p-4 animate-fade-in">
+      <div className="container mx-auto px-4 max-w-4xl">
+        <div className="flex items-center justify-between mb-10">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">
-              Saved Dishes
-            </h1>
-            <p className="mt-2 text-gray-600">
-              Your saved dish templates
-            </p>
+            <h1 className="text-3xl font-bold text-[#f0f4f8]">Saved Dishes</h1>
+            <p className="mt-2 text-[#8b9bb4]">Your saved dish templates</p>
           </div>
 
           <Link
-            href="/"
-            className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            href="/plans"
+            className="h-[44px] px-6 rounded-[300px] font-medium text-[#f0f4f8] bg-[rgba(255,255,255,0.08)] border border-[rgba(255,255,255,0.12)] hover:bg-[rgba(255,255,255,0.12)] transition-colors flex items-center gap-2"
           >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
             Back to Plans
           </Link>
         </div>
 
         {error && (
-          <div className="mb-6 rounded-md bg-red-50 p-4 text-sm text-red-700">
+          <div className="mb-6 p-4 bg-[rgba(220,38,38,0.1)] border border-[rgba(220,38,38,0.3)] rounded-lg text-[#fca5a5] text-sm flex items-center gap-2">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
             {error}
           </div>
         )}
 
         {savedDishes.length === 0 ? (
-          <div className="rounded-lg bg-white p-8 text-center shadow-sm">
-            <h2 className="text-xl font-semibold text-gray-900">
+          <div className="glass-card rounded-2xl p-12 text-center">
+            <div className="w-16 h-16 rounded-full bg-[rgba(0,255,157,0.1)] flex items-center justify-center mx-auto mb-6 neon-glow-sm">
+              <PackageIcon className="w-8 h-8 text-[#00ff9d]" />
+            </div>
+            <h2 className="text-xl font-semibold text-[#f0f4f8]">
               No saved dishes yet
             </h2>
-            <p className="mt-2 text-gray-600">
-              Save a dish while creating your weekly plan to see it here.
+            <p className="mt-2 text-[#8b9bb4] max-w-md mx-auto">
+              Save a dish while creating your weekly plan to see it here as a reusable template.
             </p>
           </div>
         ) : (
-          <div className="space-y-6">
+          <div className="space-y-4">
             {savedDishes.map((dish) => (
               <div
                 key={dish.id}
-                className="rounded-lg bg-white p-6 shadow-sm"
+                className="glass-card rounded-2xl p-6 group flex flex-col md:flex-row md:items-center justify-between gap-4"
               >
-                <div className="mb-4 flex items-start justify-between gap-4">
-                  <div>
-                    <h2 className="text-xl font-semibold text-gray-900">
+                <div>
+                  <div className="flex items-center gap-3 mb-2">
+                    <h2 className="text-xl font-semibold text-[#f0f4f8] group-hover:text-[#00ff9d] transition-colors">
                       {dish.name}
                     </h2>
-
-                    <p className="mt-1 text-sm text-gray-500">
-                      Saved on {formatDate(dish.created_at)}
-                    </p>
-
-                    {dish.notes && (
-                      <p className="mt-2 text-gray-600">{dish.notes}</p>
-                    )}
+                    <span className="px-3 py-1 rounded-full bg-[rgba(0,255,157,0.1)] border border-[rgba(0,255,157,0.2)]">
+                      <span className="text-[#00ff9d] text-xs font-medium uppercase tracking-wide">Template</span>
+                    </span>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={() => handleDeleteDish(dish.id, dish.name)}
-                    className="rounded-md bg-red-50 px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-100"
-                  >
-                    Delete
-                  </button>
+                  <p className="text-sm text-[#8b9bb4] flex items-center gap-2">
+                    <svg className="w-4 h-4 text-[#00d2ff]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    {formatDate(dish.created_at)}
+                  </p>
                 </div>
 
-                <div>
-                  <h3 className="mb-3 font-medium text-gray-900">
-                    Ingredients
-                  </h3>
-
-                  {dish.ingredients.length === 0 ? (
-                    <p className="text-sm text-gray-500">
-                      No ingredients saved.
-                    </p>
-                  ) : (
-                    <div className="space-y-3">
-                      {dish.ingredients.map((ingredient) => (
-                        <div
-                          key={ingredient.id}
-                          className="rounded-md border border-gray-200 p-3"
-                        >
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className="font-medium text-gray-900">
-                              {ingredient.name}
-                            </span>
-
-                            {ingredient.quantity && (
-                              <span className="text-sm text-gray-600">
-                                {ingredient.quantity} {ingredient.unit}
-                              </span>
-                            )}
-
-                            <span className="rounded-full bg-gray-100 px-2 py-1 text-xs text-gray-600">
-                              {ingredient.category}
-                            </span>
-                          </div>
-
-                          {ingredient.preparation_form && (
-                            <p className="mt-1 text-sm text-gray-600">
-                              Preparation: {ingredient.preparation_form}
-                            </p>
-                          )}
-
-                          {ingredient.assigned_to && (
-                            <p className="mt-1 text-sm text-gray-600">
-                              Assigned to: {ingredient.assigned_to}
-                            </p>
-                          )}
-
-                          {ingredient.notes && (
-                            <p className="mt-1 text-sm text-gray-600">
-                              Notes: {ingredient.notes}
-                            </p>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                <button
+                  type="button"
+                  onClick={() => handleDeleteDish(dish.id, dish.name)}
+                  className="h-[44px] px-5 rounded-[300px] font-medium text-[#f0f4f8] bg-[rgba(220,38,38,0.2)] border border-[rgba(220,38,38,0.3)] hover:bg-[rgba(220,38,38,0.3)] transition-all duration-300 flex items-center gap-2"
+                >
+                  <Trash2Icon className="w-4 h-4 text-[#fca5a5]" />
+                  <span>Delete</span>
+                </button>
               </div>
             ))}
           </div>
         )}
 
-        <div className="mt-8">
+        <div className="mt-10 text-center">
           <Link
             href="/"
-            className="text-sm font-medium text-blue-600 hover:text-blue-800"
+            className="inline-flex items-center gap-2 text-[#8b9bb4] hover:text-[#00ff9d] transition-colors"
           >
-            ← Back to Home
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
+            Back to Home
           </Link>
         </div>
       </div>

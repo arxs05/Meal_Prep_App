@@ -3,6 +3,13 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { getSupabaseClient } from '@/lib/supabase/client';
+import { SparklesIcon, Trash2Icon, EditIcon, CheckIcon } from 'lucide-react';
+
+const toTitleCase = (value: string) => {
+  return value.replace(/\w\S*/g, (word) =>
+    word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+  );
+};
 
 interface PlanData {
   id: string;
@@ -80,6 +87,15 @@ export default function WorkspacePage({ params }: { params: { id: string } }) {
     if (!text) return '';
     return text.trim().replace(/\s+/g, ' ').toLowerCase();
   }
+
+  // Get day order for sorting (Monday = 0 through Sunday = 6)
+  const dayOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+  
+  // Get current day for highlighting
+  const getCurrentDay = () => {
+    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Sunday'];
+    return days[new Date().getDay()] || 'Monday';
+  };
 
   // Helper function to create a saved dish template
   async function createSavedDish(dish: Dish, owner_id: string): Promise<string | null> {
@@ -658,7 +674,7 @@ if (!existingSavedDish?.exists) {
 
   if (isLoading) {
     return (
-      <main className="min-h-screen bg-gray-50">
+      <main className="min-h-screen bg-[#060a13]">
         <div className="container mx-auto px-4 py-16">
           <div className="max-w-2xl mx-auto text-center">
             <p className="text-gray-600">Loading...</p>
@@ -669,31 +685,39 @@ if (!existingSavedDish?.exists) {
   }
 
   return (
-    <main className="min-h-screen bg-gray-50">
+    <main className="min-h-screen bg-[#060a13]">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
+      <div className="bg-[rgba(10,15,28,0.85)] border-b border-[rgba(255,255,255,0.08)]">
+        <div className="container mx-auto px-4 py-4 animate-fade-in">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">
-                {plan.title || 'Weekly Plan'}
-              </h1>
-              <p className="text-sm text-gray-600">
+              <h1 className="text-3xl font-bold text-[#f0f4f8]">
+  {toTitleCase(plan.title)}
+</h1>
+              <p className="text-[#8b9bb4] mt-1 flex items-center gap-2">
+                <svg className="w-4 h-4 text-[#00d2ff]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
                 Week starting {formatDate(plan.week_start_date)}
               </p>
             </div>
-            <button
-              onClick={handleLogout}
-              className="text-red-600 hover:text-red-800 px-4 py-2 rounded-md hover:bg-red-50 mr-2"
-            >
-              Logout
-            </button>
-            <button
-              onClick={handleBack}
-              className="text-gray-600 hover:text-gray-900 px-4 py-2 rounded-md hover:bg-gray-100"
-            >
-              ← Back to Home
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleLogout}
+                className="h-[44px] px-5 rounded-[300px] font-medium text-[#fca5a5] bg-[rgba(220,38,38,0.15)] border border-[rgba(220,38,38,0.3)] hover:bg-[rgba(220,38,38,0.25)] transition-all duration-300 text-sm"
+              >
+                Logout
+              </button>
+              <button
+                onClick={handleBack}
+                className="h-[44px] px-6 rounded-[300px] font-medium text-white bg-[rgba(255,255,255,0.12)] border border-[rgba(255,255,255,0.2)] hover:bg-[rgba(255,255,255,0.2)] transition-colors flex items-center gap-2 text-sm"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                </svg>
+                Back
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -703,50 +727,71 @@ if (!existingSavedDish?.exists) {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {days.map((day) => {
             const dayDishes = getDishesForDay(day);
+            const isCurrentDay = day === getCurrentDay();
             return (
-              <div key={day} className="bg-white rounded-lg shadow p-6 flex flex-col">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-xl font-semibold text-gray-900">{day}</h2>
+              <div 
+                key={day} 
+                className={`glass-card rounded-2xl p-6 flex flex-col border ${isCurrentDay ? 'border-[#00ff9d]/30 shadow-[0_0_30px_rgba(0,255,157,0.15)]' : ''}`}
+              >
+                <div className="flex items-center justify-between mb-5">
+                  <div className="flex items-center gap-3">
+                    <h2 className={`text-lg font-semibold ${isCurrentDay ? 'text-[#00ff9d]' : 'text-[#f0f4f8]'}`}>
+                      {day}
+                    </h2>
+                    {isCurrentDay && (
+                      <span className="px-2 py-1 text-xs rounded-full bg-[rgba(255,0,0,0.2)] border border-red-500/30 text-red-500">
+                        <span className="text-xs font-medium uppercase tracking-wide">●</span>
+                      </span>
+                    )}
+                  </div>
                   <button
                     onClick={() => handleAddDishClick(day)}
-                    className="bg-blue-600 text-white px-3 py-1 rounded-md text-sm hover:bg-blue-700 transition-colors"
+                    className="h-[44px] px-5 rounded-[300px] font-medium text-[#060a13] bg-[#00ff9d] hover:scale-105 transition-all duration-300 hover:shadow-[0_0_20px_rgba(0,255,157,0.4)] flex items-center gap-2 text-sm"
                   >
-                    Add dish
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
+                    <span>Add dish</span>
                   </button>
                 </div>
                 
-                <div className="flex-1 space-y-3">
+                <div className="flex-1 space-y-4">
                   {dayDishes.length === 0 ? (
-                    <div className="border-2 border-dashed border-gray-300 rounded-md p-4 text-center text-gray-500 min-h-[80px] flex items-center justify-center">
+                    <div className="border-2 border-dashed border-[rgba(255,255,255,0.1)] rounded-xl p-6 text-center text-[#8b9bb4] min-h-[100px] flex flex-col items-center justify-center">
+                      <svg className="w-8 h-8 mb-2 text-[#8b9bb4]/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                      </svg>
                       No dishes yet
                     </div>
                   ) : (
                     dayDishes.map((dish) => (
-                      <div key={dish.id} className="border border-gray-200 rounded-md p-3">
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <h3 className="font-medium text-gray-900">{dish.name}</h3>
-                            {dish.notes && (
-                              <p className="text-sm text-gray-600 mt-1">{dish.notes}</p>
-                            )}
+                      <div key={dish.id} className="glass-input rounded-xl p-4 group transition-all hover:border-[rgba(0,255,157,0.3)]">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex-1 min-w-0">
+                            <h3 className="font-medium text-[#f0f4f8] truncate group-hover:text-[#00ff9d] transition-colors">{toTitleCase(dish.name)}</h3>
                             {dish.ingredients.length > 0 && (
-                              <p className="text-xs text-gray-500 mt-1">
+                              <p className="text-xs text-[#8b9bb4] mt-1 flex items-center gap-1">
+                                <svg className="w-3 h-3 text-[#00d2ff]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                                </svg>
                                 {dish.ingredients.length} ingredient{dish.ingredients.length !== 1 ? 's' : ''}
                               </p>
                             )}
                           </div>
-                          <div className="flex gap-2 ml-2">
+                          <div className="flex gap-2">
                             <button
                               onClick={() => handleEditDishClick(dish)}
-                              className="text-blue-600 hover:text-blue-800 text-sm"
+                              className="h-8 w-8 shrink-0 rounded-full text-[#00d2ff] bg-[rgba(0,210,255,0.12)] hover:bg-[rgba(0,210,255,0.25)] border border-[rgba(0,210,255,0.3)] transition-all duration-300 flex items-center justify-center"
                             >
-                              Edit
+                              <EditIcon className="w-3.5 h-3.5 text-[#00d2ff]" />
                             </button>
                             <button
                               onClick={() => handleDeleteDish(dish.id)}
-                              className="text-red-600 hover:text-red-800 text-sm"
+                              className="h-8 w-8 shrink-0 rounded-full text-[#fca5a5] bg-[rgba(220,38,38,0.12)] border border-[rgba(220,38,38,0.3)] hover:bg-[rgba(220,38,38,0.25)] transition-all duration-300 flex items-center justify-center"
                             >
-                              Delete
+                              <Trash2Icon className="w-3.5 h-3.5 text-[#fca5a5]" />
+                              
+                            
                             </button>
                           </div>
                         </div>
@@ -763,39 +808,74 @@ if (!existingSavedDish?.exists) {
       {/* Advance-Preparation Checklist */}
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6">
+          <h2 className="text-2xl font-bold text-[#f0f4f8] mb-6">
             Advance-Preparation Checklist
           </h2>
           
           {dishes.length === 0 || getIngredientsForChecklist().length === 0 ? (
-            <div className="bg-white rounded-lg shadow p-8 text-center">
-              <div className="text-gray-400 text-6xl mb-4">📋</div>
-              <p className="text-gray-600 text-lg mb-2">No ingredients yet</p>
-              <p className="text-gray-500">
+            <div className="glass-card rounded-2xl border border-[rgba(255,255,255,0.08)] p-8 text-center">
+              <div className="text-[#64748b] text-6xl mb-4">📋</div>
+              <p className="text-[#f0f4f8] text-lg mb-2">No ingredients yet</p>
+              <p className="text-[#f0f4f8]">
                 Add dishes and ingredients to create your preparation checklist
               </p>
             </div>
           ) : (
-            <div className="space-y-6">
-              {dishes.map((dish) => {
-                const dishIngredients = dish.ingredients;
-                if (dishIngredients.length === 0) return null;
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+  {[...dishes]
+    .sort((a, b) => {
+      const dayOrder = [
+        'Monday',
+        'Tuesday',
+        'Wednesday',
+        'Thursday',
+        'Friday',
+        'Saturday',
+        'Sunday',
+      ];
+
+      return dayOrder.indexOf(a.day) - dayOrder.indexOf(b.day);
+    })
+    .map((dish) => {
+      const dishIngredients = dish.ingredients;
+      if (dishIngredients.length === 0) return null;
                 
                 return (
-                  <div key={dish.id} className="bg-white rounded-lg shadow overflow-hidden">
-                    <div className="bg-gray-50 px-6 py-4 border-b border-gray-200">
+                  <div key={dish.id} className="glass-card rounded-2xl border border-[rgba(255,255,255,0.08)] overflow-hidden">
+                    <div className="bg-[rgba(20,27,45,0.6)] px-6 py-4 border-b border-[rgba(255,255,255,0.08)]">
                       <div className="flex items-center justify-between">
                         <div>
-                          <h3 className="text-lg font-semibold text-gray-900">{dish.name}</h3>
-                          <p className="text-sm text-gray-500">
-                            {dish.day} • {dish.ingredients.length} ingredient{dish.ingredients.length !== 1 ? 's' : ''}
-                          </p>
+                          <h3 className="text-2xl font-bold text-[#f0f4f8]">
+  {toTitleCase(dish.name)}
+</h3>
+
+<div className="mt-2 flex items-center gap-3">
+  <span
+    className={`rounded-full border px-3 py-1 text-sm font-semibold ${
+      dish.day === 'Monday'
+        ? 'border-blue-400/30 bg-blue-400/10 text-blue-300'
+        : dish.day === 'Tuesday'
+        ? 'border-purple-400/30 bg-purple-400/10 text-purple-300'
+        : dish.day === 'Wednesday'
+        ? 'border-pink-400/30 bg-pink-400/10 text-pink-300'
+        : dish.day === 'Thursday'
+        ? 'border-yellow-400/30 bg-yellow-400/10 text-yellow-300'
+        : dish.day === 'Friday'
+        ? 'border-orange-400/30 bg-orange-400/10 text-orange-300'
+        : dish.day === 'Saturday'
+        ? 'border-cyan-400/30 bg-cyan-400/10 text-cyan-300'
+        : 'border-green-400/30 bg-green-400/10 text-green-300'
+    }`}
+  >
+    {dish.day}
+  </span>
+
+  <span className="text-base text-[#8b9bb4]">
+    {dish.ingredients.length} ingredient{dish.ingredients.length !== 1 ? 's' : ''}
+  </span>
+</div>
                         </div>
-                        {dish.notes && (
-                          <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
-                            Notes: {dish.notes}
-                          </span>
-                        )}
+                        
                       </div>
                     </div>
                     
@@ -806,62 +886,72 @@ if (!existingSavedDish?.exists) {
                             key={ingredient.id}
                             className={`flex flex-col sm:flex-row sm:items-center gap-3 p-3 rounded-md border transition-colors ${
                               ingredient.is_prepared
-                                ? 'bg-green-50 border-green-200'
-                                : 'bg-white border-gray-200'
+  ? 'bg-[rgba(0,255,157,0.1)] border-[rgba(0,255,157,0.3)]'
+  : 'bg-[rgba(20,27,45,0.6)] border-[rgba(255,255,255,0.1)]'
                             }`}
                           >
-                            <div className="flex items-start gap-3 flex-1">
-                              <label className="flex items-center gap-2 mt-1 cursor-pointer">
-                                <input
-                                  type="checkbox"
-                                  checked={ingredient.is_prepared}
-                                  onChange={() => togglePrepared(dish.id, ingredient.id)}
-                                  className="w-5 h-5 text-green-600 rounded focus:ring-green-500 border-gray-300"
-                                />
-                              </label>
-                              
-                              <div className="flex-1">
-                                <div className="flex flex-wrap items-center gap-2">
-                                  <span className={`font-medium ${ingredient.is_prepared ? 'text-green-800 line-through' : 'text-gray-900'}`}>
-                                    {ingredient.name}
-                                  </span>
-                                  {ingredient.quantity && (
-                                    <span className="text-gray-600 text-sm">
-                                      {ingredient.quantity}
-                                    </span>
-                                  )}
-                                  {ingredient.unit && (
-                                    <span className="text-gray-600 text-sm">
-                                      {ingredient.unit}
-                                    </span>
-                                  )}
-                                </div>
-                                
-                                <div className="flex flex-wrap items-center gap-3 mt-1 text-xs">
-                                  {ingredient.category && (
-                                    <span
-                                      className={`px-2 py-0.5 rounded ${
-                                        ingredient.category === 'Mandatory'
-                                          ? 'bg-red-100 text-red-800'
-                                          : 'bg-yellow-100 text-yellow-800'
-                                      }`}
-                                    >
-                                      {ingredient.category}
-                                    </span>
-                                  )}
-                                  {ingredient.preparation_form && (
-                                    <span className="text-gray-600">
-                                      {ingredient.preparation_form}
-                                    </span>
-                                  )}
-                                  {ingredient.assigned_to && (
-                                    <span className="text-gray-600">
-                                      👤 {ingredient.assigned_to}
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
+                        <div className="flex w-full items-start gap-3">
+  {/* Checkbox */}
+  <label className="mt-1 cursor-pointer">
+    <input
+      type="checkbox"
+      checked={ingredient.is_prepared}
+      onChange={() => togglePrepared(dish.id, ingredient.id)}
+      className="w-5 h-5 rounded border-gray-300 text-green-600 focus:ring-green-500"
+    />
+  </label>
+
+  {/* Ingredient name + preparation form */}
+  <div className="flex-1 min-w-0">
+    <span
+      className={`text-lg font-semibold ${
+        ingredient.is_prepared
+          ? 'text-green-300 line-through'
+          : 'text-[#f0f4f8]'
+      }`}
+    >
+      {toTitleCase(ingredient.name)}
+    </span>
+
+    {/* Preparation form directly below the name */}
+    {ingredient.preparation_form && (
+      <p className="mt-1 text-base italic font-medium text-[#a8b3c7]">
+        {toTitleCase(ingredient.preparation_form)}
+      </p>
+    )}
+
+    {/* Assigned person — centered in the ingredient row */}
+{ingredient.assigned_to && (
+  <div className="flex flex-1 items-center justify-center">
+    <span className="text-base font-medium text-[#d1d5db]">
+      👤 {toTitleCase(ingredient.assigned_to)}
+    </span>
+  </div>
+)}
+  </div>
+
+  {/* Mandatory/Optional + quantity/unit on the right */}
+  <div className="ml-auto flex shrink-0 flex-col items-end gap-1">
+  {/* Quantity and unit */}
+  <div className="text-xl font-semibold text-[#f0f4f8]">
+    {ingredient.quantity && <span>{ingredient.quantity}</span>}
+    {ingredient.unit && <span className="ml-1">{ingredient.unit}</span>}
+  </div>
+
+  {/* Mandatory / Optional */}
+  {ingredient.category && (
+    <span
+      className={`text-sm font-medium ${
+        ingredient.category === 'Mandatory'
+          ? 'text-red-300'
+          : 'text-yellow-300'
+      }`}
+    >
+      {ingredient.category}
+    </span>
+  )}
+</div>
+</div>
                           </div>
                         ))}
                       </div>
@@ -876,16 +966,26 @@ if (!existingSavedDish?.exists) {
 
       {/* Add/Edit Dish Form Modal */}
       {showForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">
-              {editingDish ? 'Edit Dish' : 'Add Dish'}
-            </h2>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in">
+          <div className="glass-card rounded-2xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto border border-[rgba(255,255,255,0.12)] shadow-2xl">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-semibold text-[#f0f4f8]">
+                {editingDish ? 'Edit Dish' : 'Add Dish'}
+              </h2>
+              <button
+                onClick={handleCancelForm}
+                className="w-8 h-8 rounded-full bg-[rgba(255,255,255,0.1)] border border-[rgba(255,255,255,0.1)] flex items-center justify-center hover:bg-[rgba(255,255,255,0.2)] transition-colors text-[#8b9bb4]"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
             
             <form onSubmit={handleFormSubmit} className="space-y-4">
               <div>
-                <label htmlFor="dishName" className="block text-sm font-medium text-gray-700 mb-1">
-                  Dish Name <span className="text-red-600">*</span>
+                <label htmlFor="dishName" className="block text-sm font-medium text-[#f0f4f8] mb-2">
+                  Dish Name <span className="text-[#fca5a5]">*</span>
                 </label>
                 <input
                   type="text"
@@ -903,40 +1003,39 @@ if (!existingSavedDish?.exists) {
     setSavedDishTemplates([]);
   }
 }}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
+                  className="w-full px-3 py-2 rounded-xl border border-[rgba(255,255,255,0.12)] bg-[rgba(20,27,45,0.6)] text-[#f0f4f8] placeholder:text-[#64748b] focus:outline-none focus:border-[#00ff9d] focus:ring-1 focus:ring-[#00ff9d]"
                   placeholder="e.g., Oats Omelette"
                 />
+  <div className="mt-2 flex justify-end">
       <button
   type="button"
   onClick={handleGenerateIngredients}
   disabled={isLoading || !formData.name.trim()}
-  className="mt-2 rounded-md bg-green-600 px-3 py-2 text-sm text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
->
-  {isLoading ? 'Generating...' : 'Generate Ingredients'}
-</button>
-                {/* Template Suggestions */}
-{isSearchingTemplates && (
-  <div className="mt-2 text-sm text-gray-600">
-    Searching templates...
-  </div>
-)}
+  aria-label="Generate ingredients with AI"
+  title="Generate ingredients with AI"
+  className="mt-2 inline-flex h-10 items-center gap-2 rounded-full border border-[rgba(254,35,6,0.63)] bg-[#b60909c0] px-4 text-sm font-semibold text-[#fbfafb] transition-all duration-200 hover:bg-[rgba(248,41,5,0.22)] disabled:cursor-not-allowed disabled:opacity-50"
 
+>
+  <span aria-hidden="true">✦</span>
+  {isLoading ? 'Generating...' : 'Use AI'}
+</button>
+</div>
 {!isSearchingTemplates && savedDishTemplates.length > 0 && (
   <div className="mt-2 space-y-1">
-    <p className="text-xs font-medium text-gray-500">
+    <p className="text-xs font-medium text-[#f0f4f8] ">
       Use saved template:
     </p>
 
-    {savedDishTemplates.map((template) => (
-      <button
-        key={template.id}
-        type="button"
-        onClick={() => loadSavedDishTemplate(template.id, userId!)}
-        className="block w-full text-left px-3 py-2 text-sm text-blue-600 hover:bg-blue-50 rounded-md"
-      >
-        {template.name}
-      </button>
-    ))}
+   {savedDishTemplates.map((template) => (
+  <button
+    key={template.id}
+    type="button"
+    onClick={() => loadSavedDishTemplate(template.id, userId!)}
+    className="block w-full rounded-lg border border-transparent bg-[rgba(0,200,255,0.03)] px-3 py-2 text-center font-semibold text-[#00ff9d] transition-all duration-200 hover:border-[rgba(0,255,157,0.3)] hover:bg-[rgba(0,255,157,0.18)] hover:text-[#66ffc4]"
+  >
+    {template.name}
+  </button>
+))}
   </div>
 )}
               </div>
@@ -953,9 +1052,9 @@ if (!existingSavedDish?.exists) {
                           <input
                             type="text"
                             placeholder="Ingredient name *"
-                            value={ingredient.name}
+                            value={toTitleCase(ingredient.name)}
                             onChange={(e) => handleIngredientChange(ingredient.id, 'name', e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
+                            className="w-full px-3 py-2 rounded-xl border border-[rgba(255,255,255,0.12)] bg-[rgba(20,27,45,0.6)] text-[#f0f4f8] placeholder:text-[#64748b] focus:outline-none focus:border-[#00ff9d] focus:ring-1 focus:ring-[#00ff9d]"
                           />
                         </div>
                         <input
@@ -963,14 +1062,14 @@ if (!existingSavedDish?.exists) {
                           placeholder="Qty"
                           value={ingredient.quantity}
                           onChange={(e) => handleIngredientChange(ingredient.id, 'quantity', e.target.value)}
-                          className="w-20 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
+                         className="w-20 px-3 py-2 rounded-xl border border-[rgba(255,255,255,0.12)] bg-[rgba(20,27,45,0.6)] text-[#f0f4f8] placeholder:text-[#64748b] focus:outline-none focus:border-[#00ff9d] focus:ring-1 focus:ring-[#00ff9d]"
                         />
                         <input
                           type="text"
                           placeholder="Unit"
                           value={ingredient.unit}
                           onChange={(e) => handleIngredientChange(ingredient.id, 'unit', e.target.value)}
-                          className="w-20 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
+                          className="w-20 px-3 py-2 rounded-xl border border-[rgba(255,255,255,0.12)] bg-[rgba(20,27,45,0.6)] text-[#f0f4f8] placeholder:text-[#64748b] focus:outline-none focus:border-[#00ff9d] focus:ring-1 focus:ring-[#00ff9d]"
                         />
                         <button
                           type="button"
@@ -985,7 +1084,7 @@ if (!existingSavedDish?.exists) {
                         <select
                           value={ingredient.category}
                           onChange={(e) => handleCategoryChange(ingredient.id, e.target.value as 'Mandatory' | 'Optional')}
-                          className="px-3 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                          className="px-3 py-2 rounded-xl border border-[rgba(255,255,255,0.12)] bg-[rgba(20,27,45,0.6)] text-[#f0f4f8] placeholder:text-[#64748b] focus:outline-none focus:border-[#00ff9d] focus:ring-1 focus:ring-[#00ff9d]"
                         >
                           <option value="Mandatory">Mandatory</option>
                           <option value="Optional">Optional</option>
@@ -993,9 +1092,9 @@ if (!existingSavedDish?.exists) {
                         <input
                           type="text"
                           placeholder="Assigned person"
-                          value={ingredient.assigned_to}
+                          value={toTitleCase(ingredient.assigned_to)}
                           onChange={(e) => handleIngredientChange(ingredient.id, 'assigned_to', e.target.value)}
-                          className="flex-1 px-3 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm text-black"
+                          className="flex-1 px-3 py-2 rounded-xl border border-[rgba(255,255,255,0.12)] bg-[rgba(20,27,45,0.6)] text-[#f0f4f8] placeholder:text-[#64748b] focus:outline-none focus:border-[#00ff9d] focus:ring-1 focus:ring-[#00ff9d]"
                         />
                         <label className="flex items-center gap-1 text-sm text-gray-700">
                           <input
@@ -1011,9 +1110,9 @@ if (!existingSavedDish?.exists) {
                         <input
                           type="text"
                           placeholder="Preparation form (e.g., diced, boiled)"
-                          value={ingredient.preparation_form}
+                          value={toTitleCase(ingredient.preparation_form)}
                           onChange={(e) => handleIngredientChange(ingredient.id, 'preparation_form', e.target.value)}
-                          className="w-full px-3 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm text-black"
+                          className="w-full px-3 py-2 rounded-xl border border-[rgba(255,255,255,0.12)] bg-[rgba(20,27,45,0.6)] text-[#f0f4f8] placeholder:text-[#64748b] focus:outline-none focus:border-[#00ff9d] focus:ring-1 focus:ring-[#00ff9d]"
                         />
                       </div>
                     </div>
@@ -1037,7 +1136,7 @@ if (!existingSavedDish?.exists) {
                   rows={3}
                   value={formData.notes}
                   onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
+                  className="w-full px-3 py-2 rounded-xl border border-[rgba(255,255,255,0.12)] bg-[rgba(20,27,45,0.6)] text-[#f0f4f8] placeholder:text-[#64748b] focus:outline-none focus:border-[#00ff9d] focus:ring-1 focus:ring-[#00ff9d]"
                   placeholder="e.g., Use 2 eggs, add spinach"
                 />
               </div>

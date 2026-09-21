@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { getSupabaseClient } from '@/lib/supabase/client';
+import { ShieldIcon } from 'lucide-react';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -44,21 +45,27 @@ export default function LoginPage() {
   };
 
   return (
-    <main className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-      <div className="max-w-md w-full bg-white rounded-lg shadow p-8">
-        <h1 className="text-2xl font-bold text-gray-900 mb-6">
-          Admin Login
-        </h1>
+    <main className="min-h-screen flex items-center justify-center p-4 pb-24 animate-fade-in">
+      <div className="max-w-md w-full glass-card rounded-2xl p-8">
+        <div className="flex flex-col items-center mb-6">
+          <div className="w-14 h-14 rounded-full bg-[rgba(0,255,157,0.1)] flex items-center justify-center mb-4 neon-glow-sm">
+            <ShieldIcon className="w-7 h-7 text-[#00ff9d]" />
+          </div>
+          <h1 className="text-2xl font-bold text-[#f0f4f8]">Admin Login</h1>
+        </div>
 
         {error && (
-          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded text-red-700 text-sm">
+          <div className="mb-6 p-4 bg-[rgba(220,38,38,0.1)] border border-[rgba(220,38,38,0.3)] rounded-lg text-[#fca5a5] text-sm flex items-center gap-2">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
             {error}
           </div>
         )}
 
-        <form onSubmit={handleLogin} className="space-y-4">
+        <form onSubmit={handleLogin} className="space-y-5">
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="email" className="block text-sm font-medium text-[#f0f4f8] mb-2">
               Email
             </label>
             <input
@@ -67,13 +74,13 @@ export default function LoginPage() {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
+              className="w-full px-4 py-3 glass-input rounded-lg text-[#f0f4f8] placeholder-[#8b9bb4] transition-all focus:ring-2 focus:ring-[rgba(0,255,157,0.3)]"
               placeholder="Enter your email"
             />
           </div>
 
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="password" className="block text-sm font-medium text-[#f0f4f8] mb-2">
               Password
             </label>
             <input
@@ -82,7 +89,7 @@ export default function LoginPage() {
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
+              className="w-full px-4 py-3 glass-input rounded-lg text-[#f0f4f8] placeholder-[#8b9bb4] transition-all focus:ring-2 focus:ring-[rgba(0,255,157,0.3)]"
               placeholder="Enter your password"
             />
           </div>
@@ -90,17 +97,30 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full h-[58px] rounded-[300px] font-medium text-[#060a13] bg-[#00ff9d] hover:scale-[1.02] transition-all duration-300 hover:shadow-[0_0_30px_rgba(0,255,157,0.5)] disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
-            {isLoading ? 'Logging in...' : 'Login'}
+            {isLoading ? (
+              <>
+                <span className="w-5 h-5 border-2 border-[#060a13] border-t-transparent rounded-full animate-spin" />
+                Logging in...
+              </>
+            ) : (
+              <>
+                <ShieldIcon className="w-5 h-5" />
+                Login
+              </>
+            )}
           </button>
         </form>
 
-        <p className="mt-4 text-center text-sm text-gray-600">
-          <Link href="/" className="text-blue-600 hover:text-blue-800">
-            ← Back to home
+        <div className="mt-8 text-center">
+          <Link href="/" className="text-[#00d2ff] hover:text-[#00ff9d] transition-colors text-sm font-medium flex items-center justify-center gap-2 mx-auto">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
+            Back to home
           </Link>
-        </p>
+        </div>
       </div>
     </main>
   );

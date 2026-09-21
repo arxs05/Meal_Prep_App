@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { getSupabaseClient } from '@/lib/supabase/client';
+import { CalendarIcon } from 'lucide-react';
 
 interface PlanData {
   id: string;
@@ -86,22 +87,28 @@ export default function NewPlanPage() {
   };
 
   return (
-    <main className="min-h-screen bg-gray-50 py-12">
+    <main className="min-h-screen flex items-center justify-center p-4 pb-24 animate-fade-in">
       <div className="container mx-auto px-4 max-w-md">
-        <div className="bg-white rounded-lg shadow p-6">
-          <h1 className="text-2xl font-bold text-gray-900 mb-6">
-            Create Weekly Plan
-          </h1>
+        <div className="glass-card rounded-2xl p-8">
+          <div className="flex flex-col items-center mb-8">
+            <div className="w-14 h-14 rounded-full bg-[rgba(0,255,157,0.1)] flex items-center justify-center mb-4 neon-glow-sm">
+              <CalendarIcon className="w-7 h-7 text-[#00ff9d]" />
+            </div>
+            <h1 className="text-2xl font-bold text-[#f0f4f8]">Create Weekly Plan</h1>
+          </div>
 
           {error && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded text-red-700">
+            <div className="mb-6 p-4 bg-[rgba(220,38,38,0.1)] border border-[rgba(220,38,38,0.3)] rounded-lg text-[#fca5a5] text-sm flex items-center gap-2">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
               {error}
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-6">
             <div>
-              <label htmlFor="weekStartDate" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="weekStartDate" className="block text-sm font-medium text-[#f0f4f8] mb-2">
                 Week Start Date
               </label>
               <input
@@ -110,35 +117,45 @@ export default function NewPlanPage() {
                 required
                 value={weekStartDate}
                 onChange={(e) => setWeekStartDate(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
+                className="w-full px-4 py-3 glass-input rounded-lg text-[#f0f4f8] transition-all focus:ring-2 focus:ring-[rgba(0,255,157,0.3)]"
               />
             </div>
 
             <div>
-              <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-1">
-                Plan Title (Optional)
+              <label htmlFor="title" className="block text-sm font-medium text-[#f0f4f8] mb-2">
+                Plan Title
               </label>
               <input
                 type="text"
                 id="title"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="e.g., September 16-22, 2024"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
+                placeholder="e.g., September 16-22, 2026"
+                className="w-full px-4 py-3 glass-input rounded-lg text-[#f0f4f8] placeholder-[#8b9bb4] transition-all focus:ring-2 focus:ring-[rgba(0,255,157,0.3)]"
               />
             </div>
 
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full h-[58px] rounded-[300px] font-medium text-[#060a13] bg-[#00ff9d] hover:scale-[1.02] transition-all duration-300 hover:shadow-[0_0_30px_rgba(0,255,157,0.5)] disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
-              {isLoading ? 'Creating...' : 'Create Plan'}
+              {isLoading ? (
+                <>
+                  <div className="w-5 h-5 border-2 border-[#060a13] border-t-transparent rounded-full animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                <>
+                  <CalendarIcon className="w-5 h-5" />
+                  Create Plan
+                </>
+              )}
             </button>
           </form>
 
-          <p className="mt-4 text-sm text-gray-500 text-center">
-            This is a local demo. No data is saved yet.
+          <p className="mt-6 text-xs text-[#8b9bb4] text-center">
+            Welcome to your your new week !
           </p>
         </div>
       </div>
