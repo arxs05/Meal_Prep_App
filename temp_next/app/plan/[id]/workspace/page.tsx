@@ -374,6 +374,60 @@ export default function WorkspacePage({ params }: { params: { id: string } }) {
   const handleCategoryChange = (id: string, value: 'Mandatory' | 'Optional') => {
     setIngredients(ingredients.map(ing => ing.id === id ? { ...ing, category: value } : ing));
   };
+  const handleGenerateIngredients = async () => {
+  if (!formData.name.trim()) {
+    alert('Please enter a dish name first.');
+    return;
+  }
+
+  setIsLoading(true);
+
+  try {
+    const response = await  fetch('/api/plans/generate-ingredients', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        dishName: formData.name.trim(),
+      }),
+    });
+
+    const data = await response.json();
+    console.log('Gemini response:', data);
+    
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Failed to generate ingredients');
+    }
+
+    setIngredients(
+  data.ingredients.map((ingredient: any, index: number) => ({
+    id: `generated-${Date.now()}-${index}`,
+    name: ingredient.name || '',
+    quantity: String(ingredient.recipe_quantity ?? ''),
+    unit: ingredient.recipe_unit || '',
+    category:
+      ingredient.type === 'optional' ? 'Optional' : 'Mandatory',
+    assigned_to: '',
+    is_prepared: false,
+    preparation_form: ingredient.prep_form || 'None',
+  }))
+);
+  if (data.notes) {
+  setFormData((current) => ({
+    ...current,
+    notes: data.notes,
+  }));
+}
+
+  } catch (error) {
+    console.error('Ingredient generation failed:', error);
+    alert('Failed to generate ingredients. Please try again.');
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -852,6 +906,14 @@ if (!existingSavedDish?.exists) {
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
                   placeholder="e.g., Oats Omelette"
                 />
+      <button
+  type="button"
+  onClick={handleGenerateIngredients}
+  disabled={isLoading || !formData.name.trim()}
+  className="mt-2 rounded-md bg-green-600 px-3 py-2 text-sm text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
+>
+  {isLoading ? 'Generating...' : 'Generate Ingredients'}
+</button>
                 {/* Template Suggestions */}
 {isSearchingTemplates && (
   <div className="mt-2 text-sm text-gray-600">
